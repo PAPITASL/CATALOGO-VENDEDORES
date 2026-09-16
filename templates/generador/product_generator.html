@@ -1,0 +1,41 @@
+{% extends 'catalogo/base.html' %}
+{% load static %}
+
+{% block content %}
+<section class="page-heading">
+    <div>
+        <p class="eyebrow">PUBLICACION / SVG</p>
+        <h2>{{ producto.nombre_pieza }}</h2>
+        <p class="muted">{{ producto.modelo.marca.nombre }} {{ producto.modelo.nombre }} · {{ producto.anio_inicio }} - {{ producto.anio_fin }}</p>
+    </div>
+    <a class="button button-ghost" href="{% url 'catalogo:producto_list' %}">Volver al catálogo</a>
+</section>
+<section class="generator-layout">
+    <aside class="panel generator-controls">
+        <div class="panel-heading"><p class="eyebrow">DATOS DE PUBLICACIÓN</p><h3>Ajusta el precio</h3></div>
+        <p class="muted">El precio inicial es el precio de venta. Nunca puede ser menor al precio mínimo.</p>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            <label for="{{ form.precio_publicacion.id_for_label }}">{{ form.precio_publicacion.label }}</label>
+            {{ form.precio_publicacion }}
+            {{ form.precio_publicacion.errors }}
+            <p class="price-floor">Precio mínimo: <strong>${{ producto.precio_minimo|floatformat:0 }}</strong></p>
+            <button class="button button-primary" type="submit">Actualizar vista previa</button>
+        </form>
+        {% if svg_preview %}
+        <div class="download-actions">
+            <a class="button button-download" href="{% url 'generador:download_product_png' producto.pk %}?precio_publicacion={{ form.precio_publicacion.value|urlencode }}">Descargar PNG</a>
+            <a class="button button-ghost" href="{% url 'generador:download_product_svg' producto.pk %}?precio_publicacion={{ form.precio_publicacion.value|urlencode }}">Descargar SVG</a>
+        </div>
+        {% endif %}
+    </aside>
+    <div class="preview-stage">
+        {% if svg_preview %}
+            <div class="svg-preview">{{ svg_preview }}</div>
+        {% else %}
+            <div class="empty-preview"><span>SVG</span><h3>La vista previa aparecerá aquí</h3><p>Confirma el precio para componer la publicación.</p></div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

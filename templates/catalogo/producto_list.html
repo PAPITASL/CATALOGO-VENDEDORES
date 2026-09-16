@@ -1,0 +1,21 @@
+{% extends 'catalogo/base.html' %}
+
+{% block content %}
+<section class="page-heading">
+    <div><p class="eyebrow">INVENTARIO VISUAL / SIN STOCK</p><h2>{{ title }}</h2><p class="muted">Administra piezas y crea publicaciones listas para compartir.</p></div>
+    <a class="button button-primary" href="{% url 'catalogo:producto_create' %}">Nuevo producto</a>
+</section>
+<div class="table-wrap"><table>
+    <tr><th>Imagen</th><th>SKU</th><th>Pieza</th><th>Vehículo</th><th>Años</th><th>Precio venta</th><th>Activo</th><th>Acciones</th></tr>
+    {% for object in objects %}
+        <tr>
+            <td>{% if object.imagen_principal %}<img class="product-thumb" src="{{ object.imagen_principal.url }}" alt="{{ object.nombre_pieza }}">{% else %}<span class="no-image">Sin imagen</span>{% endif %}</td>
+            <td>{{ object.sku|default:'-' }}</td><td>{{ object.nombre_pieza }}</td>
+            <td>{{ object.modelo.marca.nombre }} {{ object.modelo.nombre }}</td>
+            <td>{{ object.anio_inicio }}–{{ object.anio_fin }}</td><td>{{ object.precio_venta }}</td>
+            <td>{{ object.activo|yesno:'Sí,No' }}</td>
+            <td class="actions"><a href="{% url 'generador:product_generator' object.pk %}">Generar SVG</a> <a href="{% url 'catalogo:producto_update' object.pk %}">Editar</a> <a href="{% url 'catalogo:producto_delete' object.pk %}">Eliminar</a></td>
+        </tr>
+    {% empty %}<tr><td colspan="8">No hay productos.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

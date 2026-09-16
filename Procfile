@@ -1,0 +1,1 @@
+web: gunicorn lujoshop.wsgi:application

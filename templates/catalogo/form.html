@@ -1,0 +1,21 @@
+{% extends 'catalogo/base.html' %}
+
+{% block content %}
+<section class="page-heading"><div><p class="eyebrow">CATÁLOGO / EDICIÓN</p><h2>{{ title }}</h2></div></section>
+<section class="panel">
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+        <p>
+            {{ field.label_tag }}<br>
+            {{ field }}
+            {% if field.help_text %}<small class="muted">{{ field.help_text }}</small>{% endif %}
+            {{ field.errors }}
+        </p>
+    {% endfor %}
+    <button type="submit">Guardar</button>
+    <a href="javascript:history.back()">Cancelar</a>
+</form>
+ </section>
+{% endblock %}

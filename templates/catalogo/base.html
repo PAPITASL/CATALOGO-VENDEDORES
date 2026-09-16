@@ -1,0 +1,31 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LujoShop | {{ title|default:'Catálogo' }}</title>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+    <div class="shell">
+        <aside class="sidebar">
+            <div class="logo">LUJOSHOP<small>CATÁLOGO INTERNO</small></div>
+            <nav class="nav">
+                <a href="{% url 'catalogo:producto_list' %}">Productos</a>
+                <a href="{% url 'catalogo:marca_list' %}">Marcas</a>
+                <a href="{% url 'catalogo:modelovehiculo_list' %}">Modelos</a>
+                <a href="{% url 'catalogo:categoria_list' %}">Categorías</a>
+                <a href="{% url 'admin:index' %}">Administración</a>
+            </nav>
+            <p class="sidebar-note">Catálogo de accesorios y repuestos para publicaciones comerciales.</p>
+        </aside>
+        <main class="content">
+    {% if messages %}
+        <div class="messages">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>
+    {% endif %}
+    {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

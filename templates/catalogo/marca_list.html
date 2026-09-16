@@ -1,0 +1,15 @@
+{% extends 'catalogo/base.html' %}
+
+{% block content %}
+<h2>{{ title }}</h2>
+<p><a href="{% url 'catalogo:marca_create' %}">Nueva marca</a></p>
+<table>
+    <tr><th>Nombre</th><th>Activo</th><th>Acciones</th></tr>
+    {% for object in objects %}
+        <tr>
+            <td>{{ object.nombre }}</td><td>{{ object.activo|yesno:'Sí,No' }}</td>
+            <td><a href="{% url 'catalogo:marca_update' object.pk %}">Editar</a> <a href="{% url 'catalogo:marca_delete' object.pk %}">Eliminar</a></td>
+        </tr>
+    {% empty %}<tr><td colspan="3">No hay marcas.</td></tr>{% endfor %}
+</table>
+{% endblock %}
