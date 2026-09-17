@@ -1,0 +1,69 @@
+{% extends 'catalogo/base.html' %}
+
+{% block content %}
+    <div class="selector-backdrop" aria-hidden="true"></div>
+    <section class="selector-shell" role="dialog" aria-modal="true" aria-labelledby="selector-title">
+        <header class="selector-header">
+            <div>
+                <p class="selector-eyebrow">CATÁLOGO DE REPUESTOS</p>
+                <h1 id="selector-title">Selecciona tu vehículo</h1>
+            </div>
+            <a class="selector-close" href="{% url 'catalogo:producto_list' %}" aria-label="Cerrar catálogo y volver a productos">&times;</a>
+        </header>
+        <section class="selector-body">
+            <nav class="selector-breadcrumb" aria-label="Ruta de selección">
+                <a href="{% url 'catalogo:vehicle_selector_start' %}">Marcas</a>
+                {% if marca %}<span>/</span><a href="{% url 'catalogo:vehicle_selector_model' marca.id %}">{{ marca.nombre }}</a>{% endif %}
+                {% if modelo %}<span>/</span><a href="{% url 'catalogo:vehicle_selector_year' marca.id modelo.id %}">{{ modelo.nombre }}</a>{% endif %}
+                {% if selected_year %}<span>/</span><strong>{{ selected_year }}</strong>{% endif %}
+            </nav>
+            <div class="selector-title-row">
+                {% if step == 'brand' %}
+                    <span class="selector-spacer"></span>
+                {% else %}
+                    <a class="selector-arrow" href="{% if step == 'results' %}{% url 'catalogo:vehicle_selector_year' marca.id modelo.id %}{% elif step == 'year' %}{% url 'catalogo:vehicle_selector_model' marca.id %}{% else %}{% url 'catalogo:vehicle_selector_start' %}{% endif %}" aria-label="Volver al paso anterior">&#8249;</a>
+                {% endif %}
+                <h2>{% if step == 'brand' %}Elige una marca{% elif step == 'model' %}Elige una referencia{% elif step == 'year' %}Elige un año{% else %}Repuestos para {{ selected_year }}{% endif %}</h2>
+                <span class="selector-spacer"></span>
+            </div>
+            {% if step != 'results' %}<div class="selector-grid {% if step == 'year' %}selector-grid-years{% endif %}">
+                {% for option in options %}
+                    {% if step == 'brand' %}
+                        <a class="selector-card" href="{% url 'catalogo:vehicle_selector_model' option.id %}"><span class="selector-icon">▦</span><strong>{{ option.nombre }}</strong></a>
+                    {% elif step == 'model' %}
+                        <a class="selector-card" href="{% url 'catalogo:vehicle_selector_year' marca.id option.id %}"><span class="selector-icon">▦</span><strong>{{ option.nombre }}</strong>{% if option.anio_inicio and option.anio_fin %}<small>{{ option.anio_inicio }}–{{ option.anio_fin }}</small>{% endif %}</a>
+                    {% else %}
+                        <a class="selector-card" href="{% url 'catalogo:vehicle_selector_products' marca.id modelo.id option %}"><span class="selector-icon">▦</span><strong>{{ option }}</strong></a>
+                    {% endif %}
+                {% empty %}
+                    <p class="selector-empty">Aún no hay opciones disponibles para esta selección.</p>
+                {% endfor %}
+            </div>{% endif %}
+            {% if products is not None %}
+                <section class="selector-results">
+                    <div class="selector-results-heading"><div><p class="selector-section-label">RESULTADOS</p><h3>Productos compatibles</h3></div><span>{{ products|length }} encontrado{{ products|length|pluralize }}</span></div>
+                    <div class="product-cards">
+                        {% for product in products %}
+                            <a class="product-card" href="{% url 'generador:product_generator' product.pk %}">
+                                <div class="product-image-wrap">
+                                    {% if product.imagen_principal %}<img src="{{ product.imagen_principal.url }}" alt="{{ product.nombre_pieza }}">{% else %}<span class="product-image-empty">Sin imagen</span>{% endif %}
+                                </div>
+                                <div class="product-card-body">
+                                    <p class="product-card-category">{% if product.categoria %}{{ product.categoria.nombre }}{% else %}REPUESTO{% endif %}</p>
+                                    <h4>{{ product.nombre_pieza }}</h4>
+                                    <p class="product-card-fit">{{ marca.nombre }} {{ modelo.nombre }} · {{ selected_year }}</p>
+                                    <div class="product-card-footer"><strong>${{ product.precio_venta }}</strong><span>Ver detalle&nbsp; →</span></div>
+                                </div>
+                            </a>
+                        {% empty %}<p class="selector-empty">No encontramos productos para ese año.</p>{% endfor %}
+                    </div>
+                </section>
+            {% endif %}
+            <div class="selector-navigation">
+                {% if step != 'brand' %}<a class="selector-back-link" href="{% if step == 'results' %}{% url 'catalogo:vehicle_selector_year' marca.id modelo.id %}{% elif step == 'year' %}{% url 'catalogo:vehicle_selector_model' marca.id %}{% else %}{% url 'catalogo:vehicle_selector_start' %}{% endif %}">← Paso anterior</a>{% endif %}
+                <a class="selector-reset-link" href="{% url 'catalogo:vehicle_selector_start' %}">Empezar de nuevo</a>
+            </div>
+            {% if step != 'results' %}<p class="selector-note"><span>ⓘ</span> Selecciona una opción para avanzar al siguiente paso.</p>{% endif %}
+        </section>
+    </section>
+{% endblock %}

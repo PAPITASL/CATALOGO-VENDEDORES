@@ -16,7 +16,7 @@ class MarcaForm(forms.ModelForm):
 class ModeloVehiculoForm(forms.ModelForm):
     class Meta:
         model = ModeloVehiculo
-        fields = ('marca', 'nombre', 'activo')
+        fields = ('marca', 'nombre', 'anio_inicio', 'anio_fin', 'activo')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -24,6 +24,28 @@ class ModeloVehiculoForm(forms.ModelForm):
 
     def clean_nombre(self):
         return self.cleaned_data['nombre'].strip().upper()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        inicio = cleaned_data.get('anio_inicio')
+        fin = cleaned_data.get('anio_fin')
+        if (inicio is None) != (fin is None):
+            raise ValidationError('Debes indicar tanto el año inicial como el año final.')
+        if inicio is not None and fin < inicio:
+            raise ValidationError('El año final no puede ser menor que el año inicial.')
+        marca = cleaned_data.get('marca')
+        nombre = cleaned_data.get('nombre')
+        if marca and nombre and inicio is not None and fin is not None:
+            overlapping = ModeloVehiculo.objects.filter(
+                marca=marca, nombre__iexact=nombre,
+                anio_inicio__lte=fin, anio_fin__gte=inicio,
+            )
+            if self.instance.pk:
+                overlapping = overlapping.exclude(pk=self.instance.pk)
+            if overlapping.exists():
+                self.add_error('anio_inicio', 'Ya existe este modelo con un rango de años que se cruza.')
+                self.add_error('anio_fin', 'Usa un rango diferente o edita el modelo existente.')
+        return cleaned_data
 
 
 class CategoriaForm(forms.ModelForm):
@@ -123,9 +145,21 @@ class ProductoForm(forms.ModelForm):
     def save(self, commit=True):
         marca = self._get_or_create_by_name(Marca, self.cleaned_data['marca_nombre'])
         modelo_nombre = self.cleaned_data['modelo_nombre'].strip().upper()
-        modelo = ModeloVehiculo.objects.filter(marca=marca, nombre__iexact=modelo_nombre).first()
+        inicio = self.cleaned_data['anio_inicio']
+        fin = self.cleaned_data['anio_fin']
+        modelo = ModeloVehiculo.objects.filter(
+            marca=marca,
+            nombre__iexact=modelo_nombre,
+            anio_inicio__lte=inicio,
+            anio_fin__gte=fin,
+        ).order_by('-anio_inicio', 'anio_fin').first()
         if modelo is None:
-            modelo = ModeloVehiculo.objects.create(marca=marca, nombre=modelo_nombre)
+            modelo = ModeloVehiculo.objects.create(
+                marca=marca,
+                nombre=modelo_nombre,
+                anio_inicio=inicio,
+                anio_fin=fin,
+            )
 
         categoria_nombre = self.cleaned_data.get('categoria_nombre', '').strip().upper()
         categoria = None

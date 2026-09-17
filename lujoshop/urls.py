@@ -19,7 +19,10 @@ from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
 
+from catalogo import views as catalogo_views
+
 urlpatterns = [
+    path('', catalogo_views.vehicle_selector, name='home'),
     path('admin/', admin.site.urls),
     path('catalogo/', include('catalogo.urls')),
     path('generador/', include('generador.urls')),

@@ -1,15 +1,14 @@
 {% extends 'catalogo/base.html' %}
 
 {% block content %}
-<h2>{{ title }}</h2>
-<p><a href="{% url 'catalogo:modelovehiculo_create' %}">Nuevo modelo</a></p>
-<table>
-    <tr><th>Marca</th><th>Modelo</th><th>Activo</th><th>Acciones</th></tr>
+<section class="page-heading"><div><p class="eyebrow">CATÁLOGO / VEHÍCULOS</p><h2>{{ title }}</h2><p class="muted">Relaciona cada referencia con su marca.</p></div><a class="button button-primary" href="{% url 'catalogo:modelovehiculo_create' %}">+ Nuevo modelo</a></section>
+<div class="table-wrap"><table>
+    <tr><th>Marca</th><th>Modelo</th><th>Años</th><th>Activo</th><th>Acciones</th></tr>
     {% for object in objects %}
         <tr>
-            <td>{{ object.marca.nombre }}</td><td>{{ object.nombre }}</td><td>{{ object.activo|yesno:'Sí,No' }}</td>
+            <td>{{ object.marca.nombre }}</td><td>{{ object.nombre }}</td><td class="cell-nowrap">{% if object.anio_inicio and object.anio_fin %}{{ object.anio_inicio }}–{{ object.anio_fin }}{% else %}Sin definir{% endif %}</td><td>{{ object.activo|yesno:'Sí,No' }}</td>
             <td><a href="{% url 'catalogo:modelovehiculo_update' object.pk %}">Editar</a> <a href="{% url 'catalogo:modelovehiculo_delete' object.pk %}">Eliminar</a></td>
         </tr>
-    {% empty %}<tr><td colspan="4">No hay modelos.</td></tr>{% endfor %}
-</table>
+    {% empty %}<tr><td colspan="5">No hay modelos.</td></tr>{% endfor %}
+</table></div>
 {% endblock %}

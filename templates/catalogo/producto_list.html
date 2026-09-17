@@ -5,17 +5,67 @@
     <div><p class="eyebrow">INVENTARIO VISUAL / SIN STOCK</p><h2>{{ title }}</h2><p class="muted">Administra piezas y crea publicaciones listas para compartir.</p></div>
     <a class="button button-primary" href="{% url 'catalogo:producto_create' %}">Nuevo producto</a>
 </section>
-<div class="table-wrap"><table>
+<form class="product-filters" method="get" role="search">
+    <div class="filter-search">
+        <label for="filter-q">Buscar producto</label>
+        <input id="filter-q" type="search" name="q" value="{{ filters.q }}" placeholder="Pieza, SKU, marca, modelo o categoría">
+    </div>
+    <div>
+        <label for="filter-marca">Marca</label>
+        <select id="filter-marca" name="marca"><option value="">Todas</option>{% for option in marcas %}<option value="{{ option.pk }}"{% if filters.marca == option.pk|stringformat:'s' %} selected{% endif %}>{{ option.nombre }}</option>{% endfor %}</select>
+    </div>
+    <div>
+        <label for="filter-modelo">Modelo</label>
+        <select id="filter-modelo" name="modelo"><option value="">Todos</option>{% for option in modelos %}<option value="{{ option.pk }}" data-marca="{{ option.marca_id }}"{% if filters.modelo == option.pk|stringformat:'s' %} selected{% endif %}>{{ option.marca.nombre }} · {{ option.nombre }}{% if option.anio_inicio %} · {{ option.anio_inicio }}–{{ option.anio_fin }}{% endif %}</option>{% endfor %}</select>
+    </div>
+    <div>
+        <label for="filter-categoria">Categoría</label>
+        <select id="filter-categoria" name="categoria"><option value="">Todas</option>{% for option in categorias %}<option value="{{ option.pk }}"{% if filters.categoria == option.pk|stringformat:'s' %} selected{% endif %}>{{ option.nombre }}</option>{% endfor %}</select>
+    </div>
+    <div>
+        <label for="filter-anio">Año compatible</label>
+        <input id="filter-anio" type="number" name="anio" value="{{ filters.anio }}" min="1900" max="2100" placeholder="Ej. 2015">
+    </div>
+    <div>
+        <label for="filter-activo">Estado</label>
+        <select id="filter-activo" name="activo"><option value="">Todos</option><option value="1"{% if filters.activo == '1' %} selected{% endif %}>Activos</option><option value="0"{% if filters.activo == '0' %} selected{% endif %}>Inactivos</option></select>
+    </div>
+    <div class="filter-actions"><button class="button button-primary" type="submit">Buscar</button><a class="button button-ghost" href="{% url 'catalogo:producto_list' %}">Limpiar</a></div>
+</form>
+<div class="results-summary"><strong>{{ objects|length }}</strong> producto{{ objects|length|pluralize }} encontrado{{ objects|length|pluralize }}</div>
+<div class="table-wrap product-table-wrap"><table class="product-table">
     <tr><th>Imagen</th><th>SKU</th><th>Pieza</th><th>Vehículo</th><th>Años</th><th>Precio venta</th><th>Activo</th><th>Acciones</th></tr>
     {% for object in objects %}
         <tr>
             <td>{% if object.imagen_principal %}<img class="product-thumb" src="{{ object.imagen_principal.url }}" alt="{{ object.nombre_pieza }}">{% else %}<span class="no-image">Sin imagen</span>{% endif %}</td>
-            <td>{{ object.sku|default:'-' }}</td><td>{{ object.nombre_pieza }}</td>
+            <td class="cell-nowrap">{{ object.sku|default:'-' }}</td><td>{{ object.nombre_pieza }}</td>
             <td>{{ object.modelo.marca.nombre }} {{ object.modelo.nombre }}</td>
-            <td>{{ object.anio_inicio }}–{{ object.anio_fin }}</td><td>{{ object.precio_venta }}</td>
+            <td class="cell-nowrap">{{ object.anio_inicio }}–{{ object.anio_fin }}</td><td class="cell-nowrap">{{ object.precio_venta }}</td>
             <td>{{ object.activo|yesno:'Sí,No' }}</td>
-            <td class="actions"><a href="{% url 'generador:product_generator' object.pk %}">Generar SVG</a> <a href="{% url 'catalogo:producto_update' object.pk %}">Editar</a> <a href="{% url 'catalogo:producto_delete' object.pk %}">Eliminar</a></td>
+            <td class="actions product-actions">
+                <a class="action-icon action-generate" href="{% url 'generador:product_generator' object.pk %}" aria-label="Generar publicación" title="Generar publicación"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v2h14v-2"/></svg></a>
+                <a class="action-icon action-edit" href="{% url 'catalogo:producto_update' object.pk %}" aria-label="Editar producto" title="Editar producto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.3-1 10.9-10.9a2.1 2.1 0 0 0-3-3L5.3 16Z"/><path d="m14.8 6.5 2.7 2.7"/></svg></a>
+                <a class="action-icon action-delete" href="{% url 'catalogo:producto_delete' object.pk %}" aria-label="Eliminar producto" title="Eliminar producto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></a>
+            </td>
         </tr>
     {% empty %}<tr><td colspan="8">No hay productos.</td></tr>{% endfor %}
 </table></div>
+<script>
+(() => {
+    const brand = document.getElementById('filter-marca');
+    const model = document.getElementById('filter-modelo');
+    if (!brand || !model) return;
+    const options = [...model.options].slice(1);
+    const filterModels = () => {
+        const selectedBrand = brand.value;
+        options.forEach(option => {
+            option.hidden = Boolean(selectedBrand && option.dataset.marca !== selectedBrand);
+        });
+        const selected = model.options[model.selectedIndex];
+        if (selectedBrand && selected && selected.dataset.marca && selected.dataset.marca !== selectedBrand) model.value = '';
+    };
+    brand.addEventListener('change', filterModels);
+    filterModels();
+})();
+</script>
 {% endblock %}

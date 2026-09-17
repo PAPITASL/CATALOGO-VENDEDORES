@@ -10,12 +10,59 @@
         <p>
             {{ field.label_tag }}<br>
             {{ field }}
+            {% if field.name == 'imagen_principal' %}
+                <span class="image-preview" id="image-preview"{% if not form.instance.imagen_principal %} hidden{% endif %}>
+                    <span class="image-preview-label">Vista previa</span>
+                    <img id="image-preview-img"{% if form.instance.imagen_principal %} src="{{ form.instance.imagen_principal.url }}"{% endif %} alt="Vista previa de la imagen principal">
+                </span>
+                <small class="image-preview-error" id="image-preview-error" hidden>El archivo seleccionado no es una imagen válida.</small>
+            {% endif %}
             {% if field.help_text %}<small class="muted">{{ field.help_text }}</small>{% endif %}
             {{ field.errors }}
         </p>
     {% endfor %}
-    <button type="submit">Guardar</button>
-    <a href="javascript:history.back()">Cancelar</a>
+    <button class="button button-primary" type="submit">Guardar cambios</button>
+    <a class="button button-ghost" href="javascript:history.back()">Cancelar</a>
 </form>
  </section>
+<script>
+(() => {
+    const input = document.querySelector('input[name="imagen_principal"]');
+    const preview = document.getElementById('image-preview');
+    const image = document.getElementById('image-preview-img');
+    const error = document.getElementById('image-preview-error');
+    const clearInput = document.querySelector('input[name="imagen_principal-clear"]');
+    if (!input || !preview || !image) return;
+
+    let previewUrl = null;
+    input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = null;
+        error.hidden = true;
+
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            preview.hidden = true;
+            error.hidden = false;
+            return;
+        }
+
+        previewUrl = URL.createObjectURL(file);
+        image.src = previewUrl;
+        image.alt = `Vista previa de ${file.name}`;
+        preview.hidden = false;
+    });
+
+    if (clearInput) {
+        clearInput.addEventListener('change', () => {
+            preview.hidden = clearInput.checked;
+        });
+    }
+
+    window.addEventListener('pagehide', () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+    });
+})();
+</script>
 {% endblock %}

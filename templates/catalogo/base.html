@@ -8,24 +8,51 @@
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body>
+    <svg class="icon-sprite" aria-hidden="true">
+        <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+        <symbol id="icon-box" viewBox="0 0 24 24"><path d="m4 7 8-4 8 4v10l-8 4-8-4Z"/><path d="m4 7 8 4 8-4M12 11v10"/></symbol>
+        <symbol id="icon-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 2-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M17 15c2 .3 4 2 4 5"/></symbol>
+        <symbol id="icon-tag" viewBox="0 0 24 24"><path d="M4 4h7l9 9-7 7-9-9Z"/><circle cx="8" cy="8" r="1"/></symbol>
+        <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+        <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="4"/></symbol>
+    </svg>
     <div class="shell">
         <aside class="sidebar">
-            <div class="logo">LUJOSHOP<small>CATÁLOGO INTERNO</small></div>
+            <div class="logo"><img src="{% get_media_prefix %}logo_lujoshop.png" alt="LujoShop" onerror="this.remove();"></div>
             <nav class="nav">
-                <a href="{% url 'catalogo:producto_list' %}">Productos</a>
-                <a href="{% url 'catalogo:marca_list' %}">Marcas</a>
-                <a href="{% url 'catalogo:modelovehiculo_list' %}">Modelos</a>
-                <a href="{% url 'catalogo:categoria_list' %}">Categorías</a>
-                <a href="{% url 'admin:index' %}">Administración</a>
+                <a class="{% if '/productos' in request.path %}active{% endif %}" href="{% url 'catalogo:producto_list' %}"><svg><use href="#icon-box"></use></svg>Productos</a>
+                <a class="{% if '/marcas' in request.path %}active{% endif %}" href="{% url 'catalogo:marca_list' %}"><svg><use href="#icon-tag"></use></svg>Marcas</a>
+                <a class="{% if '/modelos' in request.path %}active{% endif %}" href="{% url 'catalogo:modelovehiculo_list' %}"><svg><use href="#icon-box"></use></svg>Modelos</a>
+                <a class="{% if '/categorias' in request.path %}active{% endif %}" href="{% url 'catalogo:categoria_list' %}"><svg><use href="#icon-grid"></use></svg>Categorías</a>
+                <a class="{% if '/seleccionar' in request.path or request.path == '/' %}active{% endif %}" href="{% url 'catalogo:vehicle_selector_start' %}"><svg><use href="#icon-search"></use></svg>Catálogo público</a>
+                <a href="{% url 'admin:index' %}"><svg><use href="#icon-settings"></use></svg>Administración</a>
             </nav>
-            <p class="sidebar-note">Catálogo de accesorios y repuestos para publicaciones comerciales.</p>
+            <div class="sidebar-footer"><p class="sidebar-note">Catálogo de accesorios y repuestos para publicaciones comerciales.</p>{% if user.is_authenticated %}<a class="logout-link" href="{% url 'admin:logout' %}">Cerrar sesión</a>{% endif %}</div>
         </aside>
         <main class="content">
+    <header class="topbar"><div><p class="topbar-kicker">LUJOSHOP / CATÁLOGO</p><p class="topbar-date">Gestión de inventario y publicaciones</p></div>{% if user.is_authenticated %}<div class="user-card"><span>{{ user.username|first|upper }}</span><div><strong>{{ user.username }}</strong><small>{{ user.get_role_display }}</small></div></div>{% endif %}</header>
     {% if messages %}
         <div class="messages">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>
     {% endif %}
     {% block content %}{% endblock %}
         </main>
     </div>
+    <script>
+    (() => {
+        const getCookie = (name) => {
+            const prefix = `${name}=`;
+            const cookie = document.cookie.split(';').map(value => value.trim()).find(value => value.startsWith(prefix));
+            return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : null;
+        };
+
+        document.addEventListener('submit', (event) => {
+            const form = event.target;
+            if (!(form instanceof HTMLFormElement) || form.method.toLowerCase() !== 'post') return;
+            const tokenInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+            const currentToken = getCookie('csrftoken');
+            if (tokenInput && currentToken) tokenInput.value = currentToken;
+        }, true);
+    })();
+    </script>
 </body>
 </html>

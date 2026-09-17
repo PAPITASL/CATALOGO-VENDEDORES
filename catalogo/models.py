@@ -26,6 +26,8 @@ class ModeloVehiculo(models.Model):
         db_column='marca_id',
     )
     nombre = models.CharField(max_length=150)
+    anio_inicio = models.IntegerField(blank=True, null=True)
+    anio_fin = models.IntegerField(blank=True, null=True)
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
@@ -35,11 +37,16 @@ class ModeloVehiculo(models.Model):
         verbose_name = 'Modelo de vehículo'
         verbose_name_plural = 'Modelos de vehículos'
         constraints = [
-            models.UniqueConstraint(fields=['marca', 'nombre'], name='uq_modelo_marca')
+            models.UniqueConstraint(fields=['marca', 'nombre', 'anio_inicio', 'anio_fin'], name='uq_modelo_marca_anios'),
+            models.CheckConstraint(
+                condition=Q(anio_inicio__isnull=True) | Q(anio_fin__isnull=True) | Q(anio_fin__gte=F('anio_inicio')),
+                name='chk_anios_modelo',
+            ),
         ]
 
     def __str__(self):
-        return f'{self.marca} {self.nombre}'
+        years = f' ({self.anio_inicio}–{self.anio_fin})' if self.anio_inicio and self.anio_fin else ''
+        return f'{self.marca} {self.nombre}{years}'
 
 
 class Categoria(models.Model):

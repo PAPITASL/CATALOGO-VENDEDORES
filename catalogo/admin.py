@@ -12,7 +12,7 @@ class MarcaAdmin(admin.ModelAdmin):
 
 @admin.register(ModeloVehiculo)
 class ModeloVehiculoAdmin(admin.ModelAdmin):
-    list_display = ('marca', 'nombre', 'activo')
+    list_display = ('marca', 'nombre', 'anio_inicio', 'anio_fin', 'activo')
     list_filter = ('activo', 'marca')
     search_fields = ('nombre', 'marca__nombre')
 

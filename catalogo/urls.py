@@ -5,6 +5,11 @@ from . import views
 app_name = 'catalogo'
 
 urlpatterns = [
+    path('', views.vehicle_selector, name='vehicle_selector'),
+    path('seleccionar/', views.vehicle_selector, name='vehicle_selector_start'),
+    path('seleccionar/marca/<int:marca_id>/', views.vehicle_selector, name='vehicle_selector_model'),
+    path('seleccionar/marca/<int:marca_id>/modelo/<int:modelo_id>/', views.vehicle_selector, name='vehicle_selector_year'),
+    path('seleccionar/marca/<int:marca_id>/modelo/<int:modelo_id>/anio/<int:anio>/', views.vehicle_selector, name='vehicle_selector_products'),
     path('marcas/', views.marca_list, name='marca_list'),
     path('marcas/nueva/', views.marca_create, name='marca_create'),
     path('marcas/<int:pk>/editar/', views.marca_update, name='marca_update'),
