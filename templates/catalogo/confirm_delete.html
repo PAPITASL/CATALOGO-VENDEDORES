@@ -4,6 +4,20 @@
 <section class="delete-page">
     <div class="delete-card">
         <div class="delete-icon" aria-hidden="true">!</div>
+        {% if blocked %}
+        <p class="eyebrow">REGISTROS ASOCIADOS</p>
+        <h2>{{ title }}</h2>
+        <div class="delete-object">{{ object }}</div>
+        <p>Este registro tiene {{ protected_count }} registro{{ protected_count|pluralize }} asociado{{ protected_count|pluralize }}. No se eliminó ningún dato.</p>
+        <p>Primero edita los registros asociados para asignarlos a otra marca o modelo, según corresponda. También puedes eliminarlos si ya no los necesitas.</p>
+        <ul>
+            {% for item in protected_objects %}
+            <li><a href="{% url item.edit_url item.object.pk %}">{{ item.object }}</a></li>
+            {% endfor %}
+        </ul>
+        {% if protected_count > 20 %}<p>Se muestran los primeros 20 registros asociados.</p>{% endif %}
+        <a class="button button-ghost" href="{% url list_url %}">Volver al listado</a>
+        {% else %}
         <p class="eyebrow">ACCIÓN IRREVERSIBLE</p>
         <h2>{{ title|capfirst }}</h2>
         <p class="delete-question">¿Deseas eliminar este registro?</p>
@@ -14,6 +28,7 @@
             <a class="button button-ghost" href="javascript:history.back()">Cancelar</a>
             <button class="button button-danger" type="submit">Confirmar eliminación</button>
         </form>
+        {% endif %}
     </div>
 </section>
 {% endblock %}

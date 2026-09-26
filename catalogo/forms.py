@@ -71,11 +71,23 @@ class ProductoForm(forms.ModelForm):
         max_length=150,
         help_text='Se crea dentro de la marca indicada si todavía no existe.',
     )
-    categoria_nombre = forms.CharField(
+    CATEGORIAS = (
+        'FAROLAS',
+        'STOPS',
+        'PERSIANAS / PARRILLAS',
+        'EXPLORADORAS',
+        'LUCES Y DIRECCIONALES',
+        'CARROCERÍA',
+        'INTERIOR',
+        'ELÉCTRICO',
+        'SUSPENSIÓN',
+        'ESCAPE',
+        'EMBLEMAS Y ACCESORIOS',
+        'OTROS',
+    )
+    categoria_nombre = forms.ChoiceField(
         label='Categoría',
-        max_length=100,
-        required=False,
-        help_text='Opcional. También se crea o reutiliza por nombre.',
+        choices=[('', 'Selecciona una categoría')] + [(nombre, nombre) for nombre in CATEGORIAS],
     )
 
     class Meta:
@@ -102,11 +114,15 @@ class ProductoForm(forms.ModelForm):
         self.fields['imagen_principal'].widget.attrs.update({'accept': 'image/*'})
         self.fields['marca_nombre'].widget.attrs.update({'placeholder': 'Ej. Toyota'})
         self.fields['modelo_nombre'].widget.attrs.update({'placeholder': 'Ej. Corolla'})
-        self.fields['categoria_nombre'].widget.attrs.update({'placeholder': 'Ej. Farolas'})
         if self.instance and self.instance.pk:
             self.fields['marca_nombre'].initial = self.instance.modelo.marca.nombre
             self.fields['modelo_nombre'].initial = self.instance.modelo.nombre
-            self.fields['categoria_nombre'].initial = self.instance.categoria.nombre if self.instance.categoria else ''
+            categoria_actual = self.instance.categoria.nombre.strip().upper() if self.instance.categoria else ''
+            self.fields['categoria_nombre'].initial = categoria_actual if categoria_actual in self.CATEGORIAS else ''
+            if categoria_actual and categoria_actual not in self.CATEGORIAS:
+                self.fields['categoria_nombre'].help_text = (
+                    f'Categoría anterior: {self.instance.categoria.nombre}. Selecciona una categoría de la lista.'
+                )
 
     def clean(self):
         cleaned_data = super().clean()

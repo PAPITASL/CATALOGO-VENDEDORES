@@ -1,10 +1,16 @@
 from django.urls import path
 
 from . import views
+from . import clean_views
 
 app_name = 'catalogo'
 
 urlpatterns = [
+    path('productos/imagenes-catalogo/', clean_views.start, name='clean_image_start'),
+    path('productos/imagenes-catalogo/<uuid:job_id>/', clean_views.detail, name='clean_image_job'),
+    path('productos/imagenes-catalogo/<uuid:job_id>/procesar/', clean_views.process, name='clean_image_process'),
+    path('productos/imagenes-catalogo/<uuid:job_id>/zip/', clean_views.zip_download, name='clean_image_zip'),
+    path('productos/imagenes-catalogo/<uuid:job_id>/<int:item_id>/jpg/', clean_views.image_download, name='clean_image_download'),
     path('', views.vehicle_selector, name='vehicle_selector'),
     path('seleccionar/', views.vehicle_selector, name='vehicle_selector_start'),
     path('seleccionar/marca/<int:marca_id>/', views.vehicle_selector, name='vehicle_selector_model'),
@@ -23,6 +29,7 @@ urlpatterns = [
     path('categorias/<int:pk>/editar/', views.categoria_update, name='categoria_update'),
     path('categorias/<int:pk>/eliminar/', views.categoria_delete, name='categoria_delete'),
     path('productos/', views.producto_list, name='producto_list'),
+    path('productos/descargar-catalogo/', views.download_catalog, name='download_catalog'),
     path('productos/nuevo/', views.producto_create, name='producto_create'),
     path('productos/<int:pk>/editar/', views.producto_update, name='producto_update'),
     path('productos/<int:pk>/eliminar/', views.producto_delete, name='producto_delete'),

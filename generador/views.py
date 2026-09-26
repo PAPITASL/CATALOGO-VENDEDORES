@@ -1,7 +1,7 @@
 import base64
 import mimetypes
-from html import escape
-from pathlib import Path
+import re
+import unicodedata
 
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
@@ -9,15 +9,29 @@ from django.core.files.storage import default_storage
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils.safestring import mark_safe
+from django.utils.http import content_disposition_header
 import resvg
 
 from catalogo.models import Producto
 
 from .forms import GenerarImagenForm
+from .layout import TextFlow
 
 
 def _money(value):
 	return f'${value:,.0f}'.replace(',', '.')
+
+
+def product_download_filename(producto, extension):
+	parts = (
+		producto.modelo.marca.nombre, producto.modelo.nombre,
+		str(producto.anio_inicio), str(producto.anio_fin), producto.nombre_pieza,
+	)
+	name = unicodedata.normalize('NFC', '_'.join(parts)).upper()
+	# Remove characters forbidden in Windows filenames and normalize separators.
+	name = re.sub(r'[\s<>:"/\\|?*\x00-\x1f\x7f]+', '_', name)
+	name = re.sub(r'_+', '_', name).strip('._')
+	return f'{name}.{extension}'
 
 
 def _image_data_uri(producto):
@@ -44,56 +58,52 @@ def _logo_data_uri():
 
 
 def build_product_svg(producto, precio):
+	flow = TextFlow()
+	flow.text(producto.modelo.marca.nombre, 'brand', 48, gap=8)
+	flow.text(producto.modelo.nombre, 'model', 36, gap=20)
+	flow.elements.append(f'<line x1="1000" y1="{flow.y}" x2="1540" y2="{flow.y}" class="line"/>')
+	flow.y += 24
+	flow.field('COMPATIBILIDAD', f'{producto.anio_inicio} - {producto.anio_fin}', 'value', 32)
+	flow.field('PIEZA', producto.nombre_pieza, 'piece', 30)
+	flow.field('PRECIO MINIMO', _money(producto.precio_minimo), 'minimum', 30)
+	flow.field('PRECIO DE PUBLICACION', _money(precio), 'price', 48)
+	flow.text(producto.observaciones or 'Sin observaciones', 'note', 22, gap=18)
+	flow.text(f"SKU {producto.sku or 'SIN SKU'}", 'sku', 14, gap=0)
+	height = max(900, flow.y + 30)
+	text_elements = '\n'.join(flow.elements)
 	image_href = _image_data_uri(producto)
 	logo_href = _logo_data_uri()
 	image_element = (
-		f'<image href="{image_href}" x="24" y="24" width="902" height="852" preserveAspectRatio="xMidYMid meet"/>'
+		f'<image href="{image_href}" x="24" y="24" width="902" height="{height - 48}" preserveAspectRatio="xMidYMid meet"/>'
 		if image_href
-		else '<text x="475" y="450" text-anchor="middle" class="missing">Sin fotografía</text>'
+		else f'<text x="475" y="{height // 2}" text-anchor="middle" class="missing">Sin fotografía</text>'
 	)
 	logo_element = (
 		f'<image href="{logo_href}" x="1000" y="20" width="190" height="42" preserveAspectRatio="xMinYMid meet"/>'
 		if logo_href
 		else '<text x="1000" y="48" class="logo-fallback">LUJOSHOP</text>'
 	)
-	marca = escape(producto.modelo.marca.nombre)
-	modelo = escape(producto.modelo.nombre)
-	pieza = escape(producto.nombre_pieza)
-	observaciones = escape(producto.observaciones or 'Sin observaciones')
-	years = f'{producto.anio_inicio} - {producto.anio_fin}'
-	return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
-	  <rect width="1600" height="900" fill="#ffffff"/>
-	  <rect x="950" width="650" height="900" fill="#ffffff"/>
-	  <line x1="950" y1="0" x2="950" y2="900" class="divider"/>
+	return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="{height}" viewBox="0 0 1600 {height}">
+	  <rect width="1600" height="{height}" fill="#ffffff"/>
+	  <rect x="950" width="650" height="{height}" fill="#ffffff"/>
+	  <line x1="950" y1="0" x2="950" y2="{height}" class="divider"/>
   {image_element}
 	  {logo_element}
 	  <text x="1210" y="48" class="eyebrow">CATALOGO</text>
-	  <text x="1000" y="160" class="brand">{marca}</text>
-	  <text x="1000" y="220" class="model">{modelo}</text>
-	  <line x1="1000" y1="260" x2="1540" y2="260" class="line"/>
-	  <text x="1000" y="335" class="label">COMPATIBILIDAD</text>
-	  <text x="1000" y="385" class="value">{years}</text>
-	  <text x="1000" y="475" class="label">PIEZA</text>
-	  <text x="1000" y="525" class="piece">{pieza}</text>
-	  <text x="1000" y="625" class="label">PRECIO MINIMO</text>
-	  <text x="1000" y="680" class="minimum">{_money(producto.precio_minimo)}</text>
-	  <text x="1000" y="745" class="label">PRECIO DE PUBLICACION</text>
-	  <text x="1000" y="815" class="price">{_money(precio)}</text>
-	  <text x="1000" y="855" class="note">{observaciones}</text>
-	  <text x="1000" y="885" class="sku">SKU {escape(producto.sku or 'SIN SKU')}</text>
+	  {text_elements}
   <style>
-	.eyebrow,.label,.sku {{ font-family: sans-serif; letter-spacing: 3px; }}
+	.eyebrow,.label {{ font-family: sans-serif; letter-spacing: 3px; }}
 	.eyebrow {{ fill: #a15d38; font-size: 18px; font-weight: 700; }}
 	.logo-fallback {{ fill: #1e2827; font: 700 24px sans-serif; letter-spacing: 3px; }}
 	.label {{ fill: #7a746c; font-size: 16px; font-weight: 700; }}
-	.brand {{ fill: #1e2827; font: 700 58px sans-serif; }}
-	.model {{ fill: #1e2827; font: 400 42px sans-serif; }}
-	.value {{ fill: #1e2827; font: 400 38px sans-serif; }}
-	.piece {{ fill: #1e2827; font: 700 34px sans-serif; }}
-	.price {{ fill: #a15d38; font: 700 66px sans-serif; }}
-	.minimum {{ fill: #1e2827; font: 400 34px sans-serif; }}
-	.note {{ fill: #4d514d; font: 400 24px sans-serif; }}
-	.sku {{ fill: #7a746c; font-size: 14px; }}
+	.brand {{ fill: #1e2827; font: 700 48px sans-serif; }}
+	.model {{ fill: #1e2827; font: 400 36px sans-serif; }}
+	.value {{ fill: #1e2827; font: 400 32px sans-serif; }}
+	.piece {{ fill: #1e2827; font: 700 30px sans-serif; }}
+	.price {{ fill: #a15d38; font: 700 48px sans-serif; }}
+	.minimum {{ fill: #1e2827; font: 400 30px sans-serif; }}
+	.note {{ fill: #4d514d; font: 400 22px sans-serif; }}
+	.sku {{ fill: #7a746c; font: 400 14px sans-serif; }}
 	.line {{ stroke: #c8b9a8; stroke-width: 2; }}
 	.divider {{ stroke: #ddd8d0; stroke-width: 2; }}
 	.missing {{ fill: #9b938a; font: 700 24px sans-serif; }}
@@ -122,9 +132,9 @@ def download_product_svg(request, pk):
 	if not form.is_valid():
 		return HttpResponse('Precio de publicación inválido.', status=400)
 	svg = build_product_svg(producto, form.cleaned_data['precio_publicacion'])
-	filename = f'{Path(producto.sku or producto.nombre_pieza).stem}.svg'
+	filename = product_download_filename(producto, 'svg')
 	response = HttpResponse(svg, content_type='image/svg+xml; charset=utf-8')
-	response['Content-Disposition'] = f'attachment; filename="{filename}"'
+	response['Content-Disposition'] = content_disposition_header(True, filename)
 	return response
 
 
@@ -134,10 +144,17 @@ def download_product_png(request, pk):
 	form = GenerarImagenForm(request.GET or None, producto=producto)
 	if not form.is_valid():
 		return HttpResponse('Precio de publicación inválido.', status=400)
-	svg = build_product_svg(producto, form.cleaned_data['precio_publicacion'])
-	tree = resvg.usvg.Tree.from_str(svg, resvg.usvg.Options.default())
-	png = resvg.render(tree, (1, 0, 0, 1, 0, 0))
-	filename = f'{Path(producto.sku or producto.nombre_pieza).stem}.png'
+	png = generate_product_png(producto, form.cleaned_data['precio_publicacion'])
+	filename = product_download_filename(producto, 'png')
 	response = HttpResponse(png, content_type='image/png')
-	response['Content-Disposition'] = f'attachment; filename="{filename}"'
+	response['Content-Disposition'] = content_disposition_header(True, filename)
 	return response
+
+
+def generate_product_png(producto, precio):
+	svg = build_product_svg(producto, precio)
+	options = resvg.usvg.Options.default()
+	options.load_system_fonts()
+	tree = resvg.usvg.Tree.from_str(svg, options)
+	# resvg expects row-major (a, b, tx, c, d, ty), not SVG matrix order.
+	return bytes(resvg.render(tree, (1, 0, 0, 0, 1, 0)))

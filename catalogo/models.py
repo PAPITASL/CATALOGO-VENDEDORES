@@ -106,3 +106,5 @@ class Producto(models.Model):
 
     def __str__(self):
         return f'{self.modelo.marca} {self.modelo} - {self.nombre_pieza}'
+
+from .clean_models import CatalogImageJob, CatalogImageItem

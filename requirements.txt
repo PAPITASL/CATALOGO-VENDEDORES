@@ -5,3 +5,4 @@ resvg==0.2.0
 dj-database-url==2.3.0
 gunicorn==23.0.0
 whitenoise==6.9.0
+Pillow==12.3.0
