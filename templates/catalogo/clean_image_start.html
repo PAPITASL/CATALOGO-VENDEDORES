@@ -1,12 +1,14 @@
 {% extends 'catalogo/base.html' %}
 {% block content %}
-<section class="page-heading"><h2>Generar imágenes catálogo</h2><a class="button button-ghost" href="{% url 'catalogo:producto_list' %}">Volver a Productos</a></section>
+<section class="page-heading"><h2>{% if with_heading %}Imágenes para vendedores{% else %}Generar imágenes catálogo{% endif %}</h2><a class="button button-ghost" href="{% url 'catalogo:producto_list' %}">Volver a Productos</a></section>
 <section class="panel">
     <h3>{{ count }} productos seleccionados</h3>
     <p>Se procesarán todos los resultados de los filtros, incluyendo las demás páginas.</p>
-    <p>Una imagen JPG de 800 × 600 por producto. La foto completa se ajusta proporcionalmente, se centra y el espacio sobrante se rellena de blanco.</p>
+    {% if with_heading %}<p>Una imagen JPG de 800 × 600 por producto, con el nombre de la pieza, la marca, el modelo y el rango de años compatibles en la parte superior. La foto completa se ajusta debajo del texto, sin recortarse y sobre blanco.</p>
+    {% else %}<p>Una imagen JPG de 800 × 600 por producto. La foto completa se ajusta proporcionalmente, se centra y el espacio sobrante se rellena de blanco.</p>{% endif %}
     <p>Se conserva todo el contenido de la foto, incluido su fondo original. No se recortan piezas ni se usa inteligencia artificial. Los archivos originales se conservan.</p>
     {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+    {% if active_job %}<p><a class="button button-primary" href="{% url 'catalogo:clean_image_job' active_job.pk %}">Continuar generación en curso</a></p>{% endif %}
     <form method="post">{% csrf_token %}<button class="button button-primary" {% if not count %}disabled{% endif %}>Generar {{ count }} imágenes</button></form>
 </section>
 <section class="panel"><h3>Generaciones recientes</h3>

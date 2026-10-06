@@ -14,7 +14,7 @@ from .views import admin_required, filtered_products
 
 @admin_required
 @require_http_methods(['GET', 'POST'])
-def start(request):
+def start(request, with_heading=False):
     products, filters = filtered_products(request.GET)
     count = products.count()
     error = ''
@@ -26,8 +26,13 @@ def start(request):
                 # Serialize double-clicks and simultaneous tabs for this user.
                 get_user_model().objects.select_for_update().get(pk=request.user.pk)
                 job = CatalogImageJob.objects.filter(owner=request.user, active=True).first()
+                if job is not None and job.with_heading != with_heading:
+                    return render(request, 'catalogo/clean_image_start.html', {
+                        'count': count, 'with_heading': with_heading, 'active_job': job,
+                        'error': 'Termina la generación en curso antes de iniciar este tipo de imágenes.',
+                    })
                 if job is None:
-                    job = CatalogImageJob.objects.create(owner=request.user, filters=filters)
+                    job = CatalogImageJob.objects.create(owner=request.user, filters=filters, with_heading=with_heading)
                     batch = []
                     names = set()
                     for product in products.iterator(chunk_size=100):
@@ -38,6 +43,9 @@ def start(request):
                             name = name[:-4] + '_.jpg'
                         names.add(name.casefold())
                         batch.append(CatalogImageItem(
+                            heading={'piece': product.nombre_pieza,
+                                     'vehicle': (f'{product.modelo.marca.nombre} · {product.modelo.nombre} · '
+                                                 f'{product.anio_inicio}-{product.anio_fin}')} if with_heading else {},
                             job=job, product=product, source=product.imagen_principal.name or '',
                             filename=name, description=f'{product.nombre_pieza} — {product.modelo}',
                         ))
@@ -47,8 +55,8 @@ def start(request):
                     CatalogImageItem.objects.bulk_create(batch)
             return redirect('catalogo:clean_image_job', job_id=job.pk)
     return render(request, 'catalogo/clean_image_start.html', {
-        'count': count, 'error': error,
-        'jobs': CatalogImageJob.objects.filter(owner=request.user).order_by('-created_at')[:10],
+        'count': count, 'error': error, 'with_heading': with_heading,
+        'jobs': CatalogImageJob.objects.filter(owner=request.user, with_heading=with_heading).order_by('-created_at')[:10],
     })
 
 

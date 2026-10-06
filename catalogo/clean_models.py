@@ -8,6 +8,7 @@ class CatalogImageJob(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     filters = models.JSONField(default=dict)
+    with_heading = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -20,6 +21,7 @@ class CatalogImageItem(models.Model):
     product = models.ForeignKey('catalogo.Producto', null=True, on_delete=models.SET_NULL)
     source = models.CharField(max_length=500, blank=True)
     description = models.TextField()
+    heading = models.JSONField(default=dict)
     filename = models.CharField(max_length=250)
     status = models.CharField(max_length=16, default='pending', db_index=True)
     image = models.FileField(upload_to='catalogo_limpio/', max_length=500, blank=True)

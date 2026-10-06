@@ -22,6 +22,19 @@ MARCA_MODELO_ANIO-ANIO_PIEZA.jpg. Los duplicados reciben un sufijo.
 Se pueden descargar individualmente o en ZIP al finalizar. Los fallos
 se informan por producto y en errores.txt dentro del ZIP.
 
+## Imagenes para vendedores
+
+Productos -> Imagenes para vendedores -> Generar. Respeta los mismos filtros
+y genera JPG de 800 x 600 con el nombre de la pieza, la marca/modelo y el
+rango de anos compatibles del producto arriba (por ejemplo, 1997-2003).
+El texto se divide en lineas y ajusta su tamano para nombres largos. La foto
+completa se ajusta debajo, sin recortes. Los textos se guardan al iniciar la
+generacion, por lo que editar el producto despues no cambia ese trabajo.
+Permite descargar JPG individuales o el ZIP. El boton de imagenes de catalogo
+sin texto y las publicaciones conservan su comportamiento anterior.
+Si existe una generacion de otro tipo en curso, se muestra un enlace para
+terminarla antes de iniciar la nueva. Aplicar la migracion 0006 al actualizar.
+
 ## Instalacion y pruebas
 
 Instalar requirements.txt y aplicar `python manage.py migrate`.

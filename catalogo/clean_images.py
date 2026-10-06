@@ -8,7 +8,7 @@ from pathlib import PurePosixPath
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.utils import timezone
-from PIL import Image, ImageOps
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from .models import CatalogImageItem, CatalogImageJob
 
@@ -41,6 +41,66 @@ def compose_jpeg(raw):
         return output.getvalue()
 
 
+def heading_lines(draw, text, font, width=752):
+    """Wrap by measured pixels, including identifiers without spaces."""
+    lines = []
+    line = ''
+    for word in str(text).split():
+        candidate = f'{line} {word}' if line else word
+        if draw.textlength(candidate, font=font) <= width:
+            line = candidate
+            continue
+        if line:
+            lines.append(line)
+        line = ''
+        for char in word:
+            if line and draw.textlength(line + char, font=font) > width:
+                lines.append(line)
+                line = ''
+            line += char
+    if line:
+        lines.append(line)
+    return lines
+
+
+def compose_heading_jpeg(raw, heading):
+    """Keep the full photograph below a fitted heading on an 800 x 600 JPG."""
+    canvas = Image.new('RGB', (800, 600), 'white')
+    draw = ImageDraw.Draw(canvas)
+    for size in range(30, 11, -1):
+        title_font = ImageFont.load_default(size=size)
+        vehicle_font = ImageFont.load_default(size=size - 3)
+        title = heading_lines(draw, heading['piece'], title_font)
+        vehicle = heading_lines(draw, heading['vehicle'], vehicle_font)
+        header_height = 36 + len(title) * (size + 8) + len(vehicle) * (size + 5)
+        if header_height <= 220:
+            break
+    y = 16
+    for lines, font, step, color in (
+        (title, title_font, size + 8, '#172435'),
+        (vehicle, vehicle_font, size + 5, '#46566a'),
+    ):
+        for line in lines:
+            draw.text((400, y), line, font=font, fill=color, anchor='mt')
+            y += step
+    draw.line((24, header_height - 8, 776, header_height - 8), fill='#dce2e8', width=2)
+    with Image.open(BytesIO(raw)) as original:
+        photo = ImageOps.exif_transpose(original).convert('RGBA')
+        photo = ImageOps.contain(photo, (800, 600 - header_height), Image.Resampling.LANCZOS)
+        canvas.paste(photo, ((800 - photo.width) // 2,
+                            header_height + (600 - header_height - photo.height) // 2), photo)
+    output = BytesIO()
+    canvas.save(output, 'JPEG', quality=95, subsampling=0)
+    return output.getvalue()
+
+
+def resize_heading_photo(source, heading):
+    if not source:
+        raise FileNotFoundError('No original image')
+    with default_storage.open(source, 'rb') as original:
+        return compose_heading_jpeg(original.read(), heading)
+
+
 def process_next_image(job_id=None):
     # Recover interrupted jobs without touching their source files.
     CatalogImageItem.objects.filter(status='processing', updated_at__lt=timezone.now() - timedelta(minutes=10)).update(
@@ -58,7 +118,8 @@ def process_next_image(job_id=None):
         return True
     stored_name = None
     try:
-        data = resize_photo(item.source)
+        data = (resize_heading_photo(item.source, item.heading)
+                if item.job.with_heading else resize_photo(item.source))
         path = str(PurePosixPath('catalogo_limpio', str(item.job_id), str(item.pk), item.filename))
         stored_name = default_storage.save(path, ContentFile(data))
         item.image.name = stored_name

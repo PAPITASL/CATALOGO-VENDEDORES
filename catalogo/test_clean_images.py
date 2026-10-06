@@ -8,9 +8,9 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.test import TestCase, override_settings
 from django.urls import reverse
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
-from .clean_images import compose_jpeg, resize_photo, process_next_image
+from .clean_images import compose_jpeg, compose_heading_jpeg, heading_lines, resize_photo, process_next_image
 from .models import CatalogImageJob, CatalogImageItem, Marca, ModeloVehiculo, Producto
 
 
@@ -131,3 +131,52 @@ class CleanImageTests(TestCase):
         self.assertEqual(job.items.get().status, 'done')
         self.assertEqual(self.client.post(url).status_code, 200)
         self.assertEqual(job.items.count(), 1)
+
+    def test_seller_job_snapshots_heading_and_downloads(self):
+        default_storage.save('original.png', ContentFile(cutout()))
+        url = reverse('catalogo:seller_image_start') + '?activo=0'
+        self.assertContains(self.client.get(url), 'Imágenes para vendedores')
+        self.assertEqual(self.client.post(url).status_code, 302)
+        job = CatalogImageJob.objects.get(active=True)
+        self.assertTrue(job.with_heading)
+        item = job.items.get()
+        self.assertEqual(item.heading, {'piece': 'KIT + SOPORTE', 'vehicle': 'FORD · F150_LOBO · 1997-2003'})
+        Producto.objects.filter(pk=item.product_id).update(nombre_pieza='Nombre posterior')
+        with patch('catalogo.clean_images.compose_heading_jpeg', wraps=compose_heading_jpeg) as compose:
+            process_next_image(job.pk)
+            self.assertEqual(compose.call_args.args[1]['piece'], 'KIT + SOPORTE')
+        item.refresh_from_db()
+        self.assertEqual(item.status, 'done')
+        response = self.client.get(reverse('catalogo:clean_image_download', args=[job.pk, item.pk]))
+        data = b''.join(response.streaming_content)
+        with Image.open(BytesIO(data)) as image:
+            self.assertEqual(image.size, (800, 600))
+            self.assertEqual(image.format, 'JPEG')
+            self.assertLess(min(image.crop((24, 16, 776, 80)).convert('L').getdata()), 100)
+        response = self.client.get(reverse('catalogo:clean_image_zip', args=[job.pk]))
+        with ZipFile(BytesIO(b''.join(response.streaming_content))) as archive:
+            self.assertEqual(archive.read(item.filename), data)
+
+    def test_active_plain_job_does_not_silently_replace_seller_request(self):
+        job = self.start_job('?activo=0')
+        self.assertFalse(job.with_heading)
+        response = self.client.post(reverse('catalogo:seller_image_start'))
+        self.assertContains(response, 'Continuar generación en curso')
+        self.assertEqual(CatalogImageJob.objects.count(), 1)
+
+    def test_heading_wrap_preserves_long_names_and_accents(self):
+        draw = ImageDraw.Draw(Image.new('RGB', (800, 600)))
+        font = ImageFont.load_default(size=30)
+        for text in ['ÁÉÍÓÚ ñ soporte de dirección ' * 8, 'M' * 200]:
+            lines = heading_lines(draw, text, font)
+            self.assertEqual(''.join(lines).replace(' ', ''), text.replace(' ', ''))
+            self.assertTrue(all(draw.textlength(line, font=font) <= 752 for line in lines))
+        raw = BytesIO()
+        Image.new('RGB', (400, 100), (200, 40, 20)).save(raw, 'PNG')
+        data = compose_heading_jpeg(raw.getvalue(), {'piece': 'M' * 200, 'vehicle': 'W' * 253})
+        with Image.open(BytesIO(data)) as image:
+            self.assertEqual(image.size, (800, 600))
+            # Both horizontal photo edges survive below the heading.
+            for x in (1, 798):
+                self.assertTrue(any(image.getpixel((x, y))[0] > 180 and image.getpixel((x, y))[1] < 60
+                                    for y in range(220, 600)))

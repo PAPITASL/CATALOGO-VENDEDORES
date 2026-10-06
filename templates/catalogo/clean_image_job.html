@@ -1,7 +1,7 @@
 {% extends 'catalogo/base.html' %}
 {% load static %}
 {% block content %}
-<section class="page-heading"><h2>Imágenes de catálogo</h2><a class="button button-ghost" href="{% url 'catalogo:clean_image_start' %}">Ver generaciones</a></section>
+<section class="page-heading"><h2>{% if job.with_heading %}Imágenes para vendedores{% else %}Imágenes de catálogo{% endif %}</h2><a class="button button-ghost" href="{% if job.with_heading %}{% url 'catalogo:seller_image_start' %}{% else %}{% url 'catalogo:clean_image_start' %}{% endif %}">Ver generaciones</a></section>
 <section class="panel">
     <p id="clean-image-progress" role="status" data-active="{{ job.active|yesno:'true,false' }}">Procesados {{ summary.processed }} de {{ summary.total }}. Exitosos: {{ summary.successful }}. Con error: {{ summary.failed }}.</p>
     {% if job.active %}<form id="clean-image-process" action="{% url 'catalogo:clean_image_process' job.pk %}" method="post">{% csrf_token %}</form><p>Mantén esta página abierta mientras se ajustan las imágenes. Si sales, podrás continuar al volver.</p>

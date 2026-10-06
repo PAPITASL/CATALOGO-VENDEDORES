@@ -8,6 +8,7 @@
         <button type="button" class="button button-ghost" id="download-catalog" {% if not download_count %}disabled{% endif %}>↓ DESCARGAR CATÁLOGO ({{ download_count }})</button>
         <a class="button button-primary" href="{% url 'catalogo:producto_create' %}">Nuevo producto</a>
         <a class="button button-ghost" href="{% url 'catalogo:clean_image_start' %}?{{ pagination_query }}">Generar imágenes catálogo ({{ page_obj.paginator.count }})</a>
+        <a class="button button-ghost" href="{% url 'catalogo:seller_image_start' %}?{{ pagination_query }}">Imágenes para vendedores ({{ page_obj.paginator.count }})</a>
     </div>
 </section>
 <dialog id="catalog-download-dialog" class="catalog-download-dialog" aria-labelledby="catalog-download-title">

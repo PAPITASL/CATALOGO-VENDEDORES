@@ -6,6 +6,7 @@ from . import clean_views
 app_name = 'catalogo'
 
 urlpatterns = [
+    path('productos/imagenes-vendedores/', clean_views.start, {'with_heading': True}, name='seller_image_start'),
     path('productos/imagenes-catalogo/', clean_views.start, name='clean_image_start'),
     path('productos/imagenes-catalogo/<uuid:job_id>/', clean_views.detail, name='clean_image_job'),
     path('productos/imagenes-catalogo/<uuid:job_id>/procesar/', clean_views.process, name='clean_image_process'),
