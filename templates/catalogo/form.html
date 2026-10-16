@@ -5,6 +5,7 @@
 <section class="panel">
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
+    {% if cancel_url %}<input type="hidden" name="navigation" value="{{ navigation }}">{% endif %}
     {{ form.non_field_errors }}
     {% for field in form %}
         <p>
@@ -22,7 +23,7 @@
         </p>
     {% endfor %}
     <button class="button button-primary" type="submit">Guardar cambios</button>
-    <a class="button button-ghost" href="javascript:history.back()">Cancelar</a>
+    <a class="button button-ghost" href="{% if cancel_url %}{{ cancel_url }}{% else %}javascript:history.back(){% endif %}">Cancelar</a>
 </form>
  </section>
 <script>

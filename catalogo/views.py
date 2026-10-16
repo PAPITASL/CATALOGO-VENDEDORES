@@ -9,6 +9,8 @@ from django.db.models.functions import Cast, Lower
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import FileResponse, JsonResponse
+from django.http import QueryDict
+from django.urls import reverse
 from django.views.decorators.http import require_GET
 
 from .forms import CategoriaForm, MarcaForm, ModeloVehiculoForm, ProductoForm
@@ -87,13 +89,17 @@ modelo_list, modelo_create, modelo_update, modelo_delete = _crud_views(
 categoria_list, categoria_create, categoria_update, categoria_delete = _crud_views(
 	Categoria, CategoriaForm, 'catalogo/categoria_list.html', 'Categorías', 'Categoría guardada correctamente.'
 )
-producto_list, producto_create, producto_update, producto_delete = _crud_views(
+_, _, _, producto_delete = _crud_views(
 	Producto, ProductoForm, 'catalogo/producto_list.html', 'Productos', 'Producto guardado correctamente.'
 )
 
 
 def filtered_products(params):
 	objects = Producto.objects.select_related('modelo', 'modelo__marca', 'categoria')
+	if 'selected' in params:
+		ids = [int(value) for value in params.get('selected', '').split(',')
+		       if value.isascii() and value.isdigit() and len(value) <= 18]
+		objects = objects.filter(pk__in=ids)
 	search = params.get('q', '').strip()
 	marca_id = params.get('marca', '').strip()
 	modelo_id = params.get('modelo', '').strip()
@@ -140,21 +146,61 @@ def filtered_products(params):
 
 def catalog_download_products(params):
 	objects, filters = filtered_products(params)
-	if not any(filters.values()):
+	if not any(filters.values()) and 'selected' not in params:
 		objects = objects.filter(activo=True)
 	return objects
+
+
+def _product_return_url(params, last=False):
+	objects, _ = filtered_products(params)
+	paginator = Paginator(objects.order_by('pk'), 25)
+	page = paginator.num_pages if last else paginator.get_page(params.get('page')).number
+	query = params.copy()
+	query['page'] = str(page)
+	return reverse('catalogo:producto_list') + '?' + query.urlencode()
+
+
+def _product_form(request, pk=None):
+	instance = get_object_or_404(Producto, pk=pk) if pk is not None else None
+	# Only carry query parameters, never a browser-supplied redirect destination.
+	params = QueryDict(request.POST.get('navigation', '')) if request.method == 'POST' else request.GET
+	form = ProductoForm(request.POST if request.method == 'POST' else None,
+	                    request.FILES or None, instance=instance)
+	if request.method == 'POST' and form.is_valid():
+		form.save()
+		messages.success(request, 'Producto guardado correctamente.')
+		# A new product must be visible even if it does not match the origin filters.
+		return redirect(_product_return_url(QueryDict('') if instance is None else params,
+		                                    last=instance is None))
+	return render(request, 'catalogo/form.html', {
+		'form': form, 'title': 'Crear producto' if instance is None else 'Editar producto',
+		'navigation': params.urlencode(), 'cancel_url': _product_return_url(params),
+	})
+
+
+@admin_required
+def producto_create(request):
+	return _product_form(request)
+
+
+@admin_required
+def producto_update(request, pk):
+	return _product_form(request, pk)
 
 
 @admin_required
 def producto_list(request):
 	objects, filters = filtered_products(request.GET)
-	page = Paginator(objects, 25).get_page(request.GET.get('page'))
+	page = Paginator(objects.order_by('pk'), 25).get_page(request.GET.get('page'))
+	navigation = request.GET.copy()
+	navigation['page'] = str(page.number)
 	query = request.GET.copy()
 	query.pop('page', None)
 	return render(request, 'catalogo/producto_list.html', {
 		'objects': page,
 		'page_obj': page,
 		'pagination_query': query.urlencode(),
+		'navigation_query': navigation.urlencode(),
 		'pagination_items': _pagination_items(page),
 		'title': 'Productos',
 		'marcas': Marca.objects.order_by('nombre'),
@@ -175,6 +221,20 @@ def _pagination_items(page):
 		)}
 		for number in page.paginator.get_elided_page_range(center, on_each_side=2, on_ends=1)
 	]
+
+
+@admin_required
+@require_GET
+def download_excel(request):
+	from .excel import build_products_excel
+	products, _ = filtered_products(request.GET)
+	response = FileResponse(
+		build_products_excel(products), as_attachment=True,
+		filename='PRODUCTOS_LUJOSHOP.xlsx',
+		content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+	)
+	response['Cache-Control'] = 'no-store'
+	return response
 
 
 @admin_required

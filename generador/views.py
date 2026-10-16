@@ -4,7 +4,6 @@ import re
 import unicodedata
 
 from django.contrib.auth.decorators import login_required
-from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -16,6 +15,7 @@ from catalogo.models import Producto
 
 from .forms import GenerarImagenForm
 from .layout import TextFlow
+from .branding import Branding, RED, BLACK, GRAY, SILVER
 
 
 def _money(value):
@@ -47,17 +47,11 @@ def _image_data_uri(producto):
 
 
 def _logo_data_uri():
-	logo_path = settings.MEDIA_ROOT / 'logo_lujoshop.png'
-	if not logo_path.exists():
-		return None
-	try:
-		encoded = base64.b64encode(logo_path.read_bytes()).decode('ascii')
-	except OSError:
-		return None
-	return f'data:image/png;base64,{encoded}'
+	return Branding(1600, 900, max_height=70).data_uri()
 
 
 def build_product_svg(producto, precio):
+	branding = Branding(1600, 900, max_height=70)
 	flow = TextFlow()
 	flow.text(producto.modelo.marca.nombre, 'brand', 48, gap=8)
 	flow.text(producto.modelo.nombre, 'model', 36, gap=20)
@@ -78,35 +72,30 @@ def build_product_svg(producto, precio):
 		if image_href
 		else f'<text x="475" y="{height // 2}" text-anchor="middle" class="missing">Sin fotografía</text>'
 	)
-	logo_element = (
-		f'<image href="{logo_href}" x="1000" y="20" width="190" height="42" preserveAspectRatio="xMinYMid meet"/>'
-		if logo_href
-		else '<text x="1000" y="48" class="logo-fallback">LUJOSHOP</text>'
-	)
+	logo_element = branding.svg(logo_href)
 	return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="{height}" viewBox="0 0 1600 {height}">
 	  <rect width="1600" height="{height}" fill="#ffffff"/>
 	  <rect x="950" width="650" height="{height}" fill="#ffffff"/>
 	  <line x1="950" y1="0" x2="950" y2="{height}" class="divider"/>
   {image_element}
 	  {logo_element}
-	  <text x="1210" y="48" class="eyebrow">CATALOGO</text>
+	  <text x="1000" y="48" class="eyebrow">CATALOGO</text>
 	  {text_elements}
   <style>
 	.eyebrow,.label {{ font-family: sans-serif; letter-spacing: 3px; }}
-	.eyebrow {{ fill: #a15d38; font-size: 18px; font-weight: 700; }}
-	.logo-fallback {{ fill: #1e2827; font: 700 24px sans-serif; letter-spacing: 3px; }}
-	.label {{ fill: #7a746c; font-size: 16px; font-weight: 700; }}
-	.brand {{ fill: #1e2827; font: 700 48px sans-serif; }}
-	.model {{ fill: #1e2827; font: 400 36px sans-serif; }}
-	.value {{ fill: #1e2827; font: 400 32px sans-serif; }}
-	.piece {{ fill: #1e2827; font: 700 30px sans-serif; }}
-	.price {{ fill: #a15d38; font: 700 48px sans-serif; }}
-	.minimum {{ fill: #1e2827; font: 400 30px sans-serif; }}
-	.note {{ fill: #4d514d; font: 400 22px sans-serif; }}
-	.sku {{ fill: #7a746c; font: 400 14px sans-serif; }}
-	.line {{ stroke: #c8b9a8; stroke-width: 2; }}
-	.divider {{ stroke: #ddd8d0; stroke-width: 2; }}
-	.missing {{ fill: #9b938a; font: 700 24px sans-serif; }}
+	.eyebrow {{ fill: {RED}; font-size: 18px; font-weight: 700; }}
+	.label {{ fill: {GRAY}; font-size: 16px; font-weight: 700; }}
+	.brand {{ fill: {BLACK}; font: 700 48px sans-serif; }}
+	.model {{ fill: {BLACK}; font: 400 36px sans-serif; }}
+	.value {{ fill: {BLACK}; font: 400 32px sans-serif; }}
+	.piece {{ fill: {BLACK}; font: 700 30px sans-serif; }}
+	.price {{ fill: {RED}; font: 700 48px sans-serif; }}
+	.minimum {{ fill: {RED}; font: 400 30px sans-serif; }}
+	.note {{ fill: {GRAY}; font: 400 22px sans-serif; }}
+	.sku {{ fill: {GRAY}; font: 400 14px sans-serif; }}
+	.line {{ stroke: {RED}; stroke-width: 2; }}
+	.divider {{ stroke: {SILVER}; stroke-width: 2; }}
+	.missing {{ fill: {GRAY}; font: 700 24px sans-serif; }}
   </style>
 </svg>'''
 

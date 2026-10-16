@@ -5,15 +5,16 @@
 <section class="page-heading">
     <div><p class="eyebrow">INVENTARIO VISUAL / SIN STOCK</p><h2>{{ title }}</h2><p class="muted">Administra piezas y crea publicaciones listas para compartir.</p></div>
     <div class="catalog-heading-actions">
+        <a class="button button-ghost" data-selection-action href="{% url 'catalogo:download_excel' %}?{{ pagination_query }}" title="Exportar todos los productos que coinciden con los filtros, incluyendo precios y observaciones">Descargar Excel ({{ page_obj.paginator.count }})</a>
         <button type="button" class="button button-ghost" id="download-catalog" {% if not download_count %}disabled{% endif %}>↓ DESCARGAR CATÁLOGO ({{ download_count }})</button>
-        <a class="button button-primary" href="{% url 'catalogo:producto_create' %}">Nuevo producto</a>
-        <a class="button button-ghost" href="{% url 'catalogo:clean_image_start' %}?{{ pagination_query }}">Generar imágenes catálogo ({{ page_obj.paginator.count }})</a>
-        <a class="button button-ghost" href="{% url 'catalogo:seller_image_start' %}?{{ pagination_query }}">Imágenes para vendedores ({{ page_obj.paginator.count }})</a>
+        <a class="button button-primary" href="{% url 'catalogo:producto_create' %}?{{ navigation_query }}">Nuevo producto</a>
+        <a class="button button-ghost" data-selection-action href="{% url 'catalogo:clean_image_start' %}?{{ pagination_query }}">Generar imágenes catálogo ({{ page_obj.paginator.count }})</a>
+        <a class="button button-ghost" data-selection-action href="{% url 'catalogo:seller_image_start' %}?{{ pagination_query }}">Imágenes para vendedores ({{ page_obj.paginator.count }})</a>
     </div>
 </section>
 <dialog id="catalog-download-dialog" class="catalog-download-dialog" aria-labelledby="catalog-download-title">
     <h3 id="catalog-download-title">Descargar catálogo{% if download_all %} completo{% endif %}</h3>
-    <p>Se generarán <strong>{{ download_count }} publicaciones</strong>{% if download_all %} de productos activos{% else %} con los filtros aplicados{% endif %}.</p>
+    <p id="catalog-download-summary">Se generarán <strong>{{ download_count }} publicaciones</strong>{% if download_all %} de productos activos{% else %} con los filtros aplicados{% endif %}.</p>
     <p>Las imágenes usarán el mismo diseño de la descarga individual y el precio de venta guardado de cada producto.</p>
     <p>Esta operación puede tardar. Si alguna publicación falla, encontrarás el detalle en errores.txt dentro del ZIP.</p>
     <div class="catalog-heading-actions">
@@ -50,10 +51,15 @@
     <div class="filter-actions"><button class="button button-primary" type="submit">Buscar</button><a class="button button-ghost" href="{% url 'catalogo:producto_list' %}">Limpiar</a></div>
 </form>
 <div class="results-summary"><strong>{{ page_obj.paginator.count }}</strong> producto{{ page_obj.paginator.count|pluralize }} encontrado{{ page_obj.paginator.count|pluralize }} · Mostrando {{ page_obj.start_index }}–{{ page_obj.end_index }}</div>
+<div id="product-selection" data-user="{{ request.user.pk }}">
+    <p id="selection-status" role="status" aria-live="polite"></p>
+    <button type="button" class="button button-ghost" id="clear-selection">Limpiar selecci&#243;n</button>
+</div>
 <div class="table-wrap product-table-wrap"><table class="product-table">
-    <tr><th>Imagen</th><th>SKU</th><th>Pieza</th><th>Vehículo</th><th>Años</th><th>Precio venta</th><th>Activo</th><th>Acciones</th></tr>
+    <tr><th><input type="checkbox" id="select-page" aria-label="Seleccionar todos los productos de esta p&#225;gina"></th><th>Imagen</th><th>SKU</th><th>Pieza</th><th>Vehículo</th><th>Años</th><th>Precio venta</th><th>Activo</th><th>Acciones</th></tr>
     {% for object in objects %}
         <tr>
+            <td><input type="checkbox" class="product-select" value="{{ object.pk }}" aria-label="Seleccionar {{ object.nombre_pieza }} SKU {{ object.sku|default:object.pk }}"></td>
             <td>{% if object.imagen_principal %}<img class="product-thumb" src="{{ object.imagen_principal.url }}" alt="{{ object.nombre_pieza }}">{% else %}<span class="no-image">Sin imagen</span>{% endif %}</td>
             <td class="cell-nowrap">{{ object.sku|default:'-' }}</td><td>{{ object.nombre_pieza }}</td>
             <td>{{ object.modelo.marca.nombre }} {{ object.modelo.nombre }}</td>
@@ -62,12 +68,12 @@
             <td class="actions">
                 <div class="product-actions">
                 <a class="action-icon action-generate" href="{% url 'generador:product_generator' object.pk %}" aria-label="Generar publicación" title="Generar publicación"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v2h14v-2"/></svg></a>
-                <a class="action-icon action-edit" href="{% url 'catalogo:producto_update' object.pk %}" aria-label="Editar producto" title="Editar producto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.3-1 10.9-10.9a2.1 2.1 0 0 0-3-3L5.3 16Z"/><path d="m14.8 6.5 2.7 2.7"/></svg></a>
+                <a class="action-icon action-edit" href="{% url 'catalogo:producto_update' object.pk %}?{{ navigation_query }}" aria-label="Editar producto" title="Editar producto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.3-1 10.9-10.9a2.1 2.1 0 0 0-3-3L5.3 16Z"/><path d="m14.8 6.5 2.7 2.7"/></svg></a>
                 <a class="action-icon action-delete" href="{% url 'catalogo:producto_delete' object.pk %}" aria-label="Eliminar producto" title="Eliminar producto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></a>
                 </div>
             </td>
         </tr>
-    {% empty %}<tr><td colspan="8">No hay productos.</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="9">No hay productos.</td></tr>{% endfor %}
 </table></div>
 {% if page_obj.has_other_pages %}
 <nav class="product-pagination" aria-label="Páginas de productos">
@@ -114,5 +120,6 @@
     filterModels();
 })();
 </script>
+<script src="{% static 'js/product-selection.js' %}" defer></script>
 <script src="{% static 'js/catalog-download.js' %}" defer></script>
 {% endblock %}

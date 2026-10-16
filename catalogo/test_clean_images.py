@@ -108,6 +108,22 @@ class CleanImageTests(TestCase):
         self.assertContains(response, 'No hay productos')
         self.assertEqual(CatalogImageJob.objects.count(), 0)
 
+    def test_selection_limits_both_image_modes(self):
+        for route in ('clean_image_start', 'seller_image_start'):
+            url = reverse(f'catalogo:{route}') + f'?selected={self.products[0].pk},{self.products[29].pk}'
+            self.assertEqual(self.client.post(url).status_code, 302)
+            job = CatalogImageJob.objects.get(active=True)
+            self.assertEqual(set(job.items.values_list('product_id', flat=True)),
+                             {self.products[0].pk, self.products[29].pk})
+            job.active = False
+            job.save()
+
+    def test_different_selection_cannot_resume_unrelated_job(self):
+        self.start_job(f'?selected={self.products[0].pk}')
+        response = self.client.post(self.start_url + f'?selected={self.products[1].pk}')
+        self.assertContains(response, 'Continuar generación en curso')
+        self.assertEqual(CatalogImageJob.objects.count(), 1)
+
     def test_opaque_landscape_and_portrait_preserve_full_photo(self):
         for size, margin, edge in (
             ((400, 100), (400, 0), (5, 205)),

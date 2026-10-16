@@ -114,3 +114,6 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Official white-background logo; deliberately separate from the legacy media logo.
+LUJOSHOP_LOGO_PATH = BASE_DIR / 'static' / 'branding' / 'lujoshop-oficial-blanco.png'

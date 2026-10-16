@@ -180,13 +180,13 @@ class ProductPaginationTests(TestCase):
         ])
         self.url = reverse('catalogo:producto_list')
 
-    def test_numeric_order_and_page_size(self):
+    def test_creation_order_and_page_size(self):
         first = self.client.get(self.url)
-        self.assertEqual([p.sku for p in first.context['objects']], [str(n) for n in range(1, 26)])
+        self.assertEqual(list(first.context['objects']), list(Producto.objects.order_by('pk')[:25]))
         self.assertEqual(first.context['page_obj'].paginator.count, 30)
         self.assertContains(first, 'page=2')
         second = self.client.get(self.url, {'page': 2})
-        self.assertEqual([p.sku for p in second.context['objects']][:3], ['26', '27', 'ABC'])
+        self.assertEqual(list(second.context['objects']), list(Producto.objects.order_by('pk')[25:]))
         self.assertEqual(len(second.context['objects']), 5)
         self.assertFalse(second.context['page_obj'].has_next())
 

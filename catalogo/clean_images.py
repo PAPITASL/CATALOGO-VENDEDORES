@@ -10,6 +10,8 @@ from django.core.files.storage import default_storage
 from django.utils import timezone
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from generador.branding import Branding, BLACK, GRAY, RED
+
 from .models import CatalogImageItem, CatalogImageJob
 
 logger = logging.getLogger(__name__)
@@ -33,9 +35,12 @@ def compose_jpeg(raw):
     with Image.open(BytesIO(raw)) as image:
         # Honor camera orientation, keep the entire photo, and never crop.
         image = ImageOps.exif_transpose(image).convert('RGBA')
-        image = ImageOps.contain(image, (800, 600), Image.Resampling.LANCZOS)
+        branding = Branding(800, 600)
+        top = branding.bottom
+        image = ImageOps.contain(image, (800, 600 - top), Image.Resampling.LANCZOS)
         canvas = Image.new('RGB', (800, 600), 'white')
-        canvas.paste(image, ((800 - image.width) // 2, (600 - image.height) // 2), image)
+        canvas.paste(image, ((800 - image.width) // 2, top + (600 - top - image.height) // 2), image)
+        branding.apply(canvas)
         output = BytesIO()
         canvas.save(output, 'JPEG', quality=95, subsampling=0)
         return output.getvalue()
@@ -67,28 +72,32 @@ def compose_heading_jpeg(raw, heading):
     """Keep the full photograph below a fitted heading on an 800 x 600 JPG."""
     canvas = Image.new('RGB', (800, 600), 'white')
     draw = ImageDraw.Draw(canvas)
+    branding = Branding(800, 600)
+    text_width = branding.x - 48 if branding.logo else 752
     for size in range(30, 11, -1):
         title_font = ImageFont.load_default(size=size)
         vehicle_font = ImageFont.load_default(size=size - 3)
-        title = heading_lines(draw, heading['piece'], title_font)
-        vehicle = heading_lines(draw, heading['vehicle'], vehicle_font)
+        title = heading_lines(draw, heading['piece'], title_font, width=text_width)
+        vehicle = heading_lines(draw, heading['vehicle'], vehicle_font, width=text_width)
         header_height = 36 + len(title) * (size + 8) + len(vehicle) * (size + 5)
         if header_height <= 220:
             break
+    header_height = max(header_height, branding.bottom)
     y = 16
     for lines, font, step, color in (
-        (title, title_font, size + 8, '#172435'),
-        (vehicle, vehicle_font, size + 5, '#46566a'),
+        (title, title_font, size + 8, BLACK),
+        (vehicle, vehicle_font, size + 5, GRAY),
     ):
         for line in lines:
-            draw.text((400, y), line, font=font, fill=color, anchor='mt')
+            draw.text((24 + text_width / 2, y), line, font=font, fill=color, anchor='mt')
             y += step
-    draw.line((24, header_height - 8, 776, header_height - 8), fill='#dce2e8', width=2)
+    draw.line((24, header_height - 8, 776, header_height - 8), fill=RED, width=2)
     with Image.open(BytesIO(raw)) as original:
         photo = ImageOps.exif_transpose(original).convert('RGBA')
         photo = ImageOps.contain(photo, (800, 600 - header_height), Image.Resampling.LANCZOS)
         canvas.paste(photo, ((800 - photo.width) // 2,
                             header_height + (600 - header_height - photo.height) // 2), photo)
+    branding.apply(canvas)
     output = BytesIO()
     canvas.save(output, 'JPEG', quality=95, subsampling=0)
     return output.getvalue()

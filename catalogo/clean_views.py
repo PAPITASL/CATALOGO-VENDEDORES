@@ -16,6 +16,8 @@ from .views import admin_required, filtered_products
 @require_http_methods(['GET', 'POST'])
 def start(request, with_heading=False):
     products, filters = filtered_products(request.GET)
+    if 'selected' in request.GET:
+        filters['selected'] = request.GET['selected']
     count = products.count()
     error = ''
     if request.method == 'POST':
@@ -26,7 +28,7 @@ def start(request, with_heading=False):
                 # Serialize double-clicks and simultaneous tabs for this user.
                 get_user_model().objects.select_for_update().get(pk=request.user.pk)
                 job = CatalogImageJob.objects.filter(owner=request.user, active=True).first()
-                if job is not None and job.with_heading != with_heading:
+                if job is not None and (job.with_heading != with_heading or job.filters != filters):
                     return render(request, 'catalogo/clean_image_start.html', {
                         'count': count, 'with_heading': with_heading, 'active_job': job,
                         'error': 'Termina la generación en curso antes de iniciar este tipo de imágenes.',
