@@ -1,5 +1,9 @@
-from django.db import models
+from uuid import uuid4
+
+from django.db import models, router, transaction
 from django.db.models import F, Q
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 
 class Marca(models.Model):
@@ -104,7 +108,57 @@ class Producto(models.Model):
             models.CheckConstraint(condition=Q(anio_fin__gte=F('anio_inicio')), name='chk_anios_producto'),
         ]
 
+    def save(self, *args, **kwargs):
+        using = kwargs.get('using') or router.db_for_write(type(self), instance=self)
+        with transaction.atomic(using=using):
+            old_sku = None
+            if not self._state.adding:
+                old_sku = type(self).objects.using(using).filter(pk=self.pk).values_list('sku', flat=True).first()
+            elif not self.sku:
+                self.sku = str(_next_numeric_sku(using))
+
+            super().save(*args, **kwargs)
+            if old_sku != self.sku and _is_numeric_sku(old_sku):
+                _renumber_numeric_skus(using)
+
     def __str__(self):
         return f'{self.modelo.marca} {self.modelo} - {self.nombre_pieza}'
+
+
+def _is_numeric_sku(sku):
+    return isinstance(sku, str) and sku.isascii() and sku.isdigit()
+
+
+def _next_numeric_sku(using):
+    numeric_skus = (
+        sku for sku in Producto.objects.using(using).values_list('sku', flat=True)
+        if _is_numeric_sku(sku)
+    )
+    return max((int(sku) for sku in numeric_skus), default=0) + 1
+
+
+def _renumber_numeric_skus(using):
+    manager = Producto.objects.using(using)
+    products = [product for product in manager.only('pk', 'sku') if _is_numeric_sku(product.sku)]
+    products.sort(key=lambda product: (int(product.sku), product.pk))
+    if all(product.sku == str(number) for number, product in enumerate(products, start=1)):
+        return
+
+    prefix = f'__renumber_{uuid4().hex}_'
+    while manager.filter(sku__startswith=prefix).exists():
+        prefix = f'__renumber_{uuid4().hex}_'
+    for product in products:
+        product.sku = f'{prefix}{product.pk}'
+    manager.bulk_update(products, ['sku'])
+
+    for number, product in enumerate(products, start=1):
+        product.sku = str(number)
+    manager.bulk_update(products, ['sku'])
+
+
+@receiver(post_delete, sender=Producto)
+def renumber_product_skus_after_delete(*, using, **_):
+    _renumber_numeric_skus(using)
+
 
 from .clean_models import CatalogImageJob, CatalogImageItem

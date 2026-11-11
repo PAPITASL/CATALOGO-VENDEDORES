@@ -233,6 +233,52 @@ class ProtectedDeletionTests(TestCase):
         self.assertFalse(Marca.objects.filter(pk=brand.pk).exists())
 
 
+class ProductSkuSequenceTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        self.client.force_login(get_user_model().objects.create_user(
+            username='sku-admin', is_staff=True,
+        ))
+        self.marca = Marca.objects.create(nombre='SKU-MARCA')
+        self.modelo = ModeloVehiculo.objects.create(marca=self.marca, nombre='SKU-MODELO')
+
+    def create_product(self, sku, name):
+        return Producto.objects.create(
+            sku=sku, nombre_pieza=name, modelo=self.modelo, anio_inicio=2000,
+            anio_fin=2001, precio_minimo=100, precio_venta=120,
+        )
+
+    def test_new_product_without_sku_gets_next_numeric_sku(self):
+        self.create_product('8', 'Primero')
+        product = self.create_product('', 'Nuevo')
+        self.assertEqual(product.sku, '9')
+
+    def test_deleting_product_compacts_numeric_skus_and_preserves_text_codes(self):
+        first = self.create_product('1', 'Primero')
+        deleted = self.create_product('4', 'Eliminar')
+        last = self.create_product('20', 'Último')
+        text_code = self.create_product('ABC', 'Código texto')
+
+        response = self.client.post(reverse('catalogo:producto_delete', args=[deleted.pk]))
+
+        self.assertRedirects(response, reverse('catalogo:producto_list'))
+        first.refresh_from_db()
+        last.refresh_from_db()
+        text_code.refresh_from_db()
+        self.assertEqual((first.sku, last.sku, text_code.sku), ('1', '2', 'ABC'))
+
+    def test_removing_numeric_sku_compacts_the_remaining_sequence(self):
+        self.create_product('1', 'Primero')
+        removed = self.create_product('2', 'Sin SKU')
+        last = self.create_product('7', 'Último')
+
+        removed.sku = ''
+        removed.save(update_fields=['sku'])
+
+        last.refresh_from_db()
+        self.assertEqual((removed.sku, last.sku), ('', '2'))
+
+
 class ProductCategoryTests(TestCase):
     def test_category_is_a_required_select_with_requested_options(self):
         form = ProductoForm()
